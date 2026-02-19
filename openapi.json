@@ -1,0 +1,920 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Docker API",
+    "description": "A production-ready Go REST API that exposes a simplified wrapper around the Docker Engine API. Supports container lifecycle management and resource metrics.",
+    "version": "1.1.0",
+    "contact": {
+      "name": "API Support",
+      "url": "https://github.com/example/docker-api"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Service liveness and readiness"
+    },
+    {
+      "name": "Containers",
+      "description": "Docker container lifecycle management"
+    },
+    {
+      "name": "Metrics",
+      "description": "Container resource usage statistics"
+    },
+    {
+      "name": "System",
+      "description": "Docker daemon and host information"
+    },
+    {
+      "name": "Images",
+      "description": "Docker image management"
+    },
+    {
+      "name": "Volumes",
+      "description": "Docker volume management"
+    },
+    {
+      "name": "Networks",
+      "description": "Docker network management"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "description": "Returns the liveness status of the API service.",
+        "operationId": "getHealth",
+        "tags": ["Health"],
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" },
+                "example": { "status": "ok" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/info": {
+      "get": {
+        "summary": "System info",
+        "description": "Returns Docker daemon and host info (version, OS, driver, memory, CPUs, etc.).",
+        "operationId": "getSystemInfo",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "Docker and host information (types.Info)",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          },
+          "500": {
+            "description": "Failed to get system info",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/system/disk": {
+      "get": {
+        "summary": "Disk usage",
+        "description": "Returns disk usage for images, containers, volumes, and build cache.",
+        "operationId": "getSystemDisk",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "Disk usage (types.DiskUsageReport)",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          },
+          "500": {
+            "description": "Failed to get disk usage",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/images": {
+      "get": {
+        "summary": "List images",
+        "description": "Returns all Docker images on the host.",
+        "operationId": "listImages",
+        "tags": ["Images"],
+        "responses": {
+          "200": {
+            "description": "List of images",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/ImageSummary" }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to list images",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/images/pull": {
+      "post": {
+        "summary": "Pull image",
+        "description": "Pulls an image from a registry. Query param: image=name:tag.",
+        "operationId": "pullImage",
+        "tags": ["Images"],
+        "parameters": [
+          {
+            "name": "image",
+            "in": "query",
+            "required": true,
+            "description": "Image reference (e.g. alpine:latest)",
+            "schema": { "type": "string", "example": "alpine:latest" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image pulled successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PullResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing image query parameter",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "500": {
+            "description": "Failed to pull image",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/images/{id}": {
+      "get": {
+        "summary": "Inspect image",
+        "description": "Returns inspection details for an image.",
+        "operationId": "inspectImage",
+        "tags": ["Images"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Image ID (full or short) or name:tag",
+            "schema": { "type": "string", "example": "abc123def456" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image inspection (types.ImageInspect)",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          },
+          "400": {
+            "description": "Missing or invalid image ID",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "500": {
+            "description": "Failed to inspect image",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove image",
+        "description": "Removes an image. Use force=1 or force=true to force removal.",
+        "operationId": "removeImage",
+        "tags": ["Images"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Image ID (full or short) or name:tag",
+            "schema": { "type": "string", "example": "abc123def456" }
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "description": "Force removal",
+            "schema": { "type": "string", "example": "1" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image removed successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OperationResponse" },
+                "example": { "id": "abc123def456", "status": "removed" }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid image ID",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "500": {
+            "description": "Failed to remove image",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/volumes": {
+      "get": {
+        "summary": "List volumes",
+        "description": "Returns all Docker volumes.",
+        "operationId": "listVolumes",
+        "tags": ["Volumes"],
+        "responses": {
+          "200": {
+            "description": "List of volumes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/VolumeSummary" }
+                }
+              }
+            }
+          },
+          "500": { "description": "Failed to list volumes", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "post": {
+        "summary": "Create volume",
+        "description": "Creates a new volume. Body: name (required), driver, labels, driver_opts.",
+        "operationId": "createVolume",
+        "tags": ["Volumes"],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateVolumeRequest" } } }
+        },
+        "responses": {
+          "201": { "description": "Volume created", "content": { "application/json": { "schema": { "type": "object" } } } },
+          "400": { "description": "Invalid body or missing name", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "500": { "description": "Failed to create volume", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/volumes/prune": {
+      "post": {
+        "summary": "Prune volumes",
+        "description": "Removes unused volumes.",
+        "operationId": "pruneVolumes",
+        "tags": ["Volumes"],
+        "responses": {
+          "200": { "description": "Prune report", "content": { "application/json": { "schema": { "type": "object" } } } },
+          "500": { "description": "Failed to prune", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/volumes/{name}": {
+      "get": {
+        "summary": "Inspect volume",
+        "operationId": "inspectVolume",
+        "tags": ["Volumes"],
+        "parameters": [{ "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Volume details", "content": { "application/json": { "schema": { "type": "object" } } } },
+          "400": { "description": "Missing volume name", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "500": { "description": "Failed to inspect", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "delete": {
+        "summary": "Remove volume",
+        "operationId": "removeVolume",
+        "tags": ["Volumes"],
+        "parameters": [
+          { "name": "name", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "force", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "204": { "description": "Volume removed" },
+          "500": { "description": "Failed to remove", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/networks": {
+      "get": {
+        "summary": "List networks",
+        "operationId": "listNetworks",
+        "tags": ["Networks"],
+        "responses": {
+          "200": { "description": "List of networks", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/NetworkSummary" } } } } },
+          "500": { "description": "Failed to list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "post": {
+        "summary": "Create network",
+        "operationId": "createNetwork",
+        "tags": ["Networks"],
+        "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateNetworkRequest" } } } },
+        "responses": {
+          "201": { "description": "Network created" },
+          "400": { "description": "Invalid body", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "500": { "description": "Failed to create", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/networks/prune": {
+      "post": {
+        "summary": "Prune networks",
+        "operationId": "pruneNetworks",
+        "tags": ["Networks"],
+        "responses": {
+          "200": { "description": "Prune report" },
+          "500": { "description": "Failed to prune", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/networks/{id}/connect": {
+      "post": {
+        "summary": "Connect container to network",
+        "operationId": "connectNetwork",
+        "tags": ["Networks"],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "required": ["container"], "properties": { "container": { "type": "string" } } } } } },
+        "responses": {
+          "204": { "description": "Connected" },
+          "400": { "description": "Invalid body", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "500": { "description": "Failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/networks/{id}/disconnect": {
+      "post": {
+        "summary": "Disconnect container from network",
+        "operationId": "disconnectNetwork",
+        "tags": ["Networks"],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "required": ["container"], "properties": { "container": { "type": "string" }, "force": { "type": "boolean" } } } } } },
+        "responses": {
+          "204": { "description": "Disconnected" },
+          "400": { "description": "Invalid body", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "500": { "description": "Failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/networks/{id}": {
+      "get": {
+        "summary": "Inspect network",
+        "operationId": "inspectNetwork",
+        "tags": ["Networks"],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Network details", "content": { "application/json": { "schema": { "type": "object" } } } },
+          "400": { "description": "Missing network ID", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "500": { "description": "Failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "delete": {
+        "summary": "Remove network",
+        "operationId": "removeNetwork",
+        "tags": ["Networks"],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "204": { "description": "Network removed" },
+          "400": { "description": "Missing network ID", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "500": { "description": "Failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/containers": {
+      "get": {
+        "summary": "List containers",
+        "description": "Returns all Docker containers, including stopped ones.",
+        "operationId": "listContainers",
+        "tags": ["Containers"],
+        "responses": {
+          "200": {
+            "description": "List of containers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Container" }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to communicate with the Docker daemon",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/containers/start/{id}": {
+      "post": {
+        "summary": "Start a container",
+        "description": "Starts a stopped Docker container identified by its ID or name.",
+        "operationId": "startContainer",
+        "tags": ["Containers"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Container ID (full or short) or name",
+            "schema": { "type": "string", "example": "abc123def456" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Container started successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OperationResponse" },
+                "example": { "id": "abc123def456", "status": "started" }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid container ID",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "500": {
+            "description": "Failed to start the container",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/containers/stop/{id}": {
+      "post": {
+        "summary": "Stop a container",
+        "description": "Gracefully stops a running Docker container identified by its ID or name.",
+        "operationId": "stopContainer",
+        "tags": ["Containers"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Container ID (full or short) or name",
+            "schema": { "type": "string", "example": "abc123def456" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Container stopped successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OperationResponse" },
+                "example": { "id": "abc123def456", "status": "stopped" }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid container ID",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "500": {
+            "description": "Failed to stop the container",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/containers/restart/{id}": {
+      "post": {
+        "summary": "Restart a container",
+        "description": "Restarts a running Docker container identified by its ID or name.",
+        "operationId": "restartContainer",
+        "tags": ["Containers"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Container ID (full or short) or name",
+            "schema": { "type": "string", "example": "abc123def456" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Container restarted successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OperationResponse" },
+                "example": { "id": "abc123def456", "status": "restarted" }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid container ID",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "500": {
+            "description": "Failed to restart the container",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/containers/{id}": {
+      "get": {
+        "summary": "Inspect a container",
+        "description": "Returns full inspection details for a container.",
+        "operationId": "inspectContainer",
+        "tags": ["Containers"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Container ID (full or short) or name",
+            "schema": { "type": "string", "example": "abc123def456" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Container inspection (Docker ContainerJSON)",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          },
+          "400": {
+            "description": "Missing or invalid container ID",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "500": {
+            "description": "Failed to inspect container",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove a container",
+        "description": "Removes a container. Use force=1 or force=true to remove a running container.",
+        "operationId": "removeContainer",
+        "tags": ["Containers"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Container ID (full or short) or name",
+            "schema": { "type": "string", "example": "abc123def456" }
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "description": "Force removal (e.g. running container)",
+            "schema": { "type": "string", "example": "1" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Container removed successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OperationResponse" },
+                "example": { "id": "abc123def456", "status": "removed" }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid container ID",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "500": {
+            "description": "Failed to remove container",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/containers/{id}/logs": {
+      "get": {
+        "summary": "Get container logs",
+        "description": "Returns stdout and stderr of a container (non-streaming).",
+        "operationId": "getContainerLogs",
+        "tags": ["Containers"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Container ID (full or short) or name",
+            "schema": { "type": "string", "example": "abc123def456" }
+          },
+          {
+            "name": "tail",
+            "in": "query",
+            "required": false,
+            "description": "Number of lines to show from the end",
+            "schema": { "type": "string", "example": "100" }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "description": "Show logs since (timestamp or duration)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "required": false,
+            "description": "Show logs until (timestamp or duration)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plain text logs (stdout and stderr combined)",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid container ID",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "500": {
+            "description": "Failed to get container logs",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/containers/{id}/metrics": {
+      "get": {
+        "summary": "Container metrics",
+        "description": "Returns a one-shot snapshot of CPU usage, memory (RSS), network I/O and block I/O for a container. Values match the output of `docker stats`.",
+        "operationId": "getContainerMetrics",
+        "tags": ["Metrics"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Container ID (full or short) or name",
+            "schema": { "type": "string", "example": "abc123def456" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resource usage snapshot",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ContainerMetrics" }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing container ID",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "500": {
+            "description": "Failed to retrieve stats from the Docker daemon",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["ok"],
+            "description": "Liveness status of the service",
+            "example": "ok"
+          }
+        }
+      },
+      "Container": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Full 64-character container ID",
+            "example": "abc123def456789abc123def456789abc123def456789abc123def456789abcd"
+          },
+          "names": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Container names (Docker prefixes each with /)",
+            "example": ["/my-container"]
+          },
+          "image": {
+            "type": "string",
+            "description": "Image name and tag",
+            "example": "nginx:latest"
+          },
+          "status": {
+            "type": "string",
+            "description": "Human-readable status string from Docker",
+            "example": "Up 2 hours"
+          },
+          "state": {
+            "type": "string",
+            "description": "Low-level container state",
+            "enum": ["created", "restarting", "running", "removing", "paused", "exited", "dead"],
+            "example": "running"
+          },
+          "labels": {
+            "type": "object",
+            "additionalProperties": { "type": "string" },
+            "description": "Key/value labels attached to the container"
+          },
+          "created": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp of container creation",
+            "example": 1699000000
+          }
+        }
+      },
+      "OperationResponse": {
+        "type": "object",
+        "required": ["id", "status"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Container ID or name echoed from the request",
+            "example": "abc123def456"
+          },
+          "status": {
+            "type": "string",
+            "description": "Result of the operation",
+            "enum": ["started", "stopped", "restarted", "removed"],
+            "example": "started"
+          }
+        }
+      },
+      "ContainerMetrics": {
+        "type": "object",
+        "description": "One-shot resource usage snapshot. CPU and memory values match `docker stats`.",
+        "properties": {
+          "container_id": {
+            "type": "string",
+            "description": "Container ID echoed from the request",
+            "example": "abc123def456"
+          },
+          "name": {
+            "type": "string",
+            "description": "Container name as reported by the Docker daemon",
+            "example": "/my-container"
+          },
+          "cpu_percent": {
+            "type": "number",
+            "format": "double",
+            "description": "CPU usage as a percentage of all available cores",
+            "example": 2.34
+          },
+          "mem_usage_mib": {
+            "type": "number",
+            "format": "double",
+            "description": "RSS memory usage in MiB (page cache excluded)",
+            "example": 128.5
+          },
+          "mem_limit_mib": {
+            "type": "number",
+            "format": "double",
+            "description": "Memory limit in MiB as configured for the container",
+            "example": 512.0
+          },
+          "mem_percent": {
+            "type": "number",
+            "format": "double",
+            "description": "Memory usage as a percentage of the configured limit",
+            "example": 25.1
+          },
+          "net_rx_mib": {
+            "type": "number",
+            "format": "double",
+            "description": "Total bytes received across all network interfaces, in MiB",
+            "example": 0.42
+          },
+          "net_tx_mib": {
+            "type": "number",
+            "format": "double",
+            "description": "Total bytes transmitted across all network interfaces, in MiB",
+            "example": 0.18
+          },
+          "block_read_mib": {
+            "type": "number",
+            "format": "double",
+            "description": "Total bytes read from block devices, in MiB",
+            "example": 0.0
+          },
+          "block_write_mib": {
+            "type": "number",
+            "format": "double",
+            "description": "Total bytes written to block devices, in MiB",
+            "example": 1.2
+          },
+          "pids": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Number of processes (PIDs) inside the container",
+            "example": 8
+          }
+        }
+      },
+      "ImageSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Image ID" },
+          "repo_tags": { "type": "array", "items": { "type": "string" }, "description": "Repository tags" },
+          "size": { "type": "integer", "format": "int64", "description": "Size in bytes" },
+          "created": { "type": "integer", "format": "int64", "description": "Creation timestamp" },
+          "containers": { "type": "integer", "description": "Number of containers using this image" }
+        }
+      },
+      "PullResponse": {
+        "type": "object",
+        "required": ["status", "image"],
+        "properties": {
+          "status": { "type": "string", "enum": ["pulled"], "example": "pulled" },
+          "image": { "type": "string", "description": "Image reference that was pulled", "example": "alpine:latest" }
+        }
+      },
+      "VolumeSummary": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "driver": { "type": "string" },
+          "mountpoint": { "type": "string" },
+          "labels": { "type": "object", "additionalProperties": { "type": "string" } }
+        }
+      },
+      "CreateVolumeRequest": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "driver": { "type": "string" },
+          "labels": { "type": "object", "additionalProperties": { "type": "string" } },
+          "driver_opts": { "type": "object", "additionalProperties": { "type": "string" } }
+        }
+      },
+      "NetworkSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "driver": { "type": "string" },
+          "scope": { "type": "string" },
+          "containers": { "type": "object", "additionalProperties": true }
+        }
+      },
+      "CreateNetworkRequest": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "driver": { "type": "string" },
+          "options": { "type": "object", "additionalProperties": { "type": "string" } },
+          "ipam": { "type": "object" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable error message",
+            "example": "failed to start container"
+          }
+        }
+      }
+    }
+  }
+}

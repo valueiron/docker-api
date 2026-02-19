@@ -1,0 +1,38 @@
+services:
+  docker-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: docker-api
+    image: docker-api:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount the Docker daemon socket so the API can manage containers on the host.
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Run as root so the container can access the Docker socket without matching the host docker group GID.
+    # For nonroot, use the image's default user and set DOCKER_GID to your host's docker group GID.
+    user: "0:0"
+    environment:
+      - PORT=8080
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/docker-api", "--healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Constrain resource usage in production.
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 128M
+        reservations:
+          cpus: "0.05"
+          memory: 32M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
