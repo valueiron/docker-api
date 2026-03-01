@@ -32,6 +32,8 @@ var wsUpgrader = websocket.Upgrader{
 }
 
 // dockerExecCommand returns the shell command to run in the container.
+// The "auto" mode uses script(1) to force a fresh PTY allocation, which ensures
+// proper echo and prompt rendering in interactive shells (same strategy as k8s-api).
 func dockerExecCommand(shell string) []string {
 	base := "export TERM=xterm-256color; "
 	switch shell {
@@ -40,7 +42,7 @@ func dockerExecCommand(shell string) []string {
 	case "bash":
 		return []string{"/bin/sh", "-c", base + "exec bash -i 2>/dev/null || exec sh -i"}
 	default: // auto
-		return []string{"/bin/sh", "-c", base + "(exec bash -i) 2>/dev/null || exec sh -i"}
+		return []string{"/bin/sh", "-c", base + `(script -q -c "exec bash -i" /dev/null) 2>/dev/null || (exec bash -i) 2>/dev/null || exec sh -i`}
 	}
 }
 
