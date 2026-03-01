@@ -392,6 +392,47 @@
         }
       }
     },
+    "/containers/run": {
+      "post": {
+        "summary": "Run a container",
+        "description": "Pulls the image if needed, then creates and starts a container. Defaults to `sleep infinity` command when none is specified.",
+        "operationId": "runContainer",
+        "tags": ["Containers"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RunContainerRequest" },
+              "example": {
+                "image": "ubuntu:24.04",
+                "name": "my-shell",
+                "command": ["sleep", "infinity"],
+                "environment": ["FOO=bar"],
+                "labels": { "app": "lab-shell" }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Container created and started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string", "description": "Full container ID" },
+                    "name": { "type": "string", "description": "Container name" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Missing image", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "500": { "description": "Pull, create, or start failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
     "/containers": {
       "get": {
         "summary": "List containers",
@@ -705,6 +746,46 @@
   },
   "components": {
     "schemas": {
+      "RunContainerRequest": {
+        "type": "object",
+        "required": ["image"],
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Docker image name and optional tag",
+            "example": "ubuntu:24.04"
+          },
+          "name": {
+            "type": "string",
+            "description": "Container name (optional, Docker assigns one if omitted)",
+            "example": "lab-docker-shell"
+          },
+          "command": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Override the image entrypoint/command. Defaults to [\"sleep\", \"infinity\"].",
+            "example": ["sleep", "infinity"]
+          },
+          "environment": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Environment variables in KEY=VALUE format",
+            "example": ["FOO=bar", "DEBUG=1"]
+          },
+          "labels": {
+            "type": "object",
+            "additionalProperties": { "type": "string" },
+            "description": "Labels to attach to the container",
+            "example": { "app": "lab-shell" }
+          },
+          "binds": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Bind mounts in hostPath:containerPath format",
+            "example": ["/data:/mnt/data"]
+          }
+        }
+      },
       "HealthResponse": {
         "type": "object",
         "required": ["status"],

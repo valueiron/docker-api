@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/gorilla/mux"
@@ -109,6 +110,72 @@ func (h *Handler) RestartContainer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"id": id, "status": "restarted"})
+}
+
+// RunContainer handles POST /containers/run.
+// Body (required): {"image": "<image>", "name": "<name>"}
+// Optional fields: "command" ([]string), "environment" ([]string "KEY=VALUE"),
+// "labels" (object), "binds" ([]string "hostPath:containerPath").
+// Defaults to `sleep infinity` command when none is specified.
+// Returns: {"id": "<full-id>", "name": "<name>"}
+func (h *Handler) RunContainer(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Image       string            `json:"image"`
+		Name        string            `json:"name"`
+		Command     []string          `json:"command,omitempty"`
+		Environment []string          `json:"environment,omitempty"`
+		Labels      map[string]string `json:"labels,omitempty"`
+		Binds       []string          `json:"binds,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Image == "" {
+		writeError(w, http.StatusBadRequest, "body must include 'image'")
+		return
+	}
+
+	ctx := r.Context()
+
+	// Pull image if not already present.
+	reader, err := h.docker.ImagePull(ctx, body.Image, image.PullOptions{})
+	if err != nil {
+		slog.Error("image pull failed", "image", body.Image, "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to pull image: "+err.Error())
+		return
+	}
+	io.Copy(io.Discard, reader) //nolint:errcheck
+	reader.Close()
+
+	cmd := body.Command
+	if len(cmd) == 0 {
+		cmd = []string{"sleep", "infinity"}
+	}
+
+	cfg := &container.Config{
+		Image:  body.Image,
+		Cmd:    cmd,
+		Tty:    false,
+		Env:    body.Environment,
+		Labels: body.Labels,
+	}
+	hostCfg := &container.HostConfig{
+		AutoRemove: false,
+		Binds:      body.Binds,
+	}
+
+	resp, err := h.docker.ContainerCreate(ctx, cfg, hostCfg, nil, nil, body.Name)
+	if err != nil {
+		slog.Error("container create failed", "image", body.Image, "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to create container: "+err.Error())
+		return
+	}
+
+	if err := h.docker.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		slog.Error("container start failed", "id", resp.ID, "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to start container: "+err.Error())
+		return
+	}
+
+	slog.Info("container run", "id", resp.ID, "image", body.Image, "name", body.Name)
+	writeJSON(w, http.StatusOK, map[string]string{"id": resp.ID, "name": body.Name})
 }
 
 // RemoveContainer handles DELETE /containers/{id}.

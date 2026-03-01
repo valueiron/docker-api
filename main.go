@@ -48,6 +48,7 @@ func main() {
 
 	// Container endpoints (specific paths before /containers/{id})
 	r.HandleFunc("/containers", h.ListContainers).Methods(http.MethodGet)
+	r.HandleFunc("/containers/run", h.RunContainer).Methods(http.MethodPost)
 	r.HandleFunc("/containers/start/{id}", h.StartContainer).Methods(http.MethodPost)
 	r.HandleFunc("/containers/stop/{id}", h.StopContainer).Methods(http.MethodPost)
 	r.HandleFunc("/containers/restart/{id}", h.RestartContainer).Methods(http.MethodPost)
