@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -49,10 +51,12 @@ func main() {
 	r.HandleFunc("/containers/start/{id}", h.StartContainer).Methods(http.MethodPost)
 	r.HandleFunc("/containers/stop/{id}", h.StopContainer).Methods(http.MethodPost)
 	r.HandleFunc("/containers/restart/{id}", h.RestartContainer).Methods(http.MethodPost)
+	r.HandleFunc("/containers/exec/ws", h.ContainerExecWS).Methods(http.MethodGet)
 	r.HandleFunc("/containers/{id}", h.InspectContainer).Methods(http.MethodGet)
 	r.HandleFunc("/containers/{id}", h.RemoveContainer).Methods(http.MethodDelete)
 	r.HandleFunc("/containers/{id}/logs", h.GetContainerLogs).Methods(http.MethodGet)
 	r.HandleFunc("/containers/{id}/metrics", h.GetContainerMetrics).Methods(http.MethodGet)
+	r.HandleFunc("/containers/{id}/exec", h.CreateContainerExecSession).Methods(http.MethodPost)
 
 	// System endpoints
 	r.HandleFunc("/system/info", h.GetSystemInfo).Methods(http.MethodGet)
@@ -131,6 +135,17 @@ func newResponseWriter(w http.ResponseWriter) *responseWriter {
 func (rw *responseWriter) WriteHeader(code int) {
 	rw.statusCode = code
 	rw.ResponseWriter.WriteHeader(code)
+}
+
+// Hijack implements http.Hijacker so that gorilla/websocket can take over
+// the underlying TCP connection. Without this, the type assertion in
+// websocket.Upgrader.Upgrade() fails and the handshake returns HTTP 500.
+func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	h, ok := rw.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("responseWriter: underlying writer does not support hijacking")
+	}
+	return h.Hijack()
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {
