@@ -115,7 +115,8 @@ func (h *Handler) RestartContainer(w http.ResponseWriter, r *http.Request) {
 // RunContainer handles POST /containers/run.
 // Body (required): {"image": "<image>", "name": "<name>"}
 // Optional fields: "command" ([]string), "environment" ([]string "KEY=VALUE"),
-// "labels" (object), "binds" ([]string "hostPath:containerPath").
+// "labels" (object), "binds" ([]string "hostPath:containerPath"),
+// "shm_size" (int64, bytes — e.g. 1073741824 for 1 GiB).
 // Defaults to `sleep infinity` command when none is specified.
 // Returns: {"id": "<full-id>", "name": "<name>"}
 func (h *Handler) RunContainer(w http.ResponseWriter, r *http.Request) {
@@ -126,6 +127,7 @@ func (h *Handler) RunContainer(w http.ResponseWriter, r *http.Request) {
 		Environment []string          `json:"environment,omitempty"`
 		Labels      map[string]string `json:"labels,omitempty"`
 		Binds       []string          `json:"binds,omitempty"`
+		ShmSize     int64             `json:"shm_size,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Image == "" {
 		writeError(w, http.StatusBadRequest, "body must include 'image'")
@@ -159,6 +161,7 @@ func (h *Handler) RunContainer(w http.ResponseWriter, r *http.Request) {
 	hostCfg := &container.HostConfig{
 		AutoRemove: false,
 		Binds:      body.Binds,
+		ShmSize:    body.ShmSize,
 	}
 
 	resp, err := h.docker.ContainerCreate(ctx, cfg, hostCfg, nil, nil, body.Name)
