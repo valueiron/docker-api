@@ -85,6 +85,11 @@ func main() {
 	r.HandleFunc("/networks/{id}", h.InspectNetwork).Methods(http.MethodGet)
 	r.HandleFunc("/networks/{id}", h.RemoveNetwork).Methods(http.MethodDelete)
 
+	// Vulnerability scanning via Trivy container
+	r.HandleFunc("/vulnerabilities/status", h.ScanStatus).Methods(http.MethodGet)
+	r.HandleFunc("/vulnerabilities/download", h.TriggerDownload).Methods(http.MethodPost)
+	r.HandleFunc("/vulnerabilities/scan", h.ScanImage).Methods(http.MethodPost)
+
 	addr := ":8080"
 	if port := os.Getenv("PORT"); port != "" {
 		addr = ":" + port
@@ -94,7 +99,7 @@ func main() {
 		Addr:         addr,
 		Handler:      r,
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		WriteTimeout: 300 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
