@@ -17,12 +17,25 @@ import (
 
 // Handler holds shared dependencies for all HTTP handlers.
 type Handler struct {
-	docker *client.Client
+	docker         *client.Client
+	agentStore     AgentStorer
+	agentConns     *AgentConnections
+	agentServerURL string
 }
 
 // New returns a Handler backed by the given Docker client.
 func New(docker *client.Client) *Handler {
-	return &Handler{docker: docker}
+	return &Handler{docker: docker, agentConns: newAgentConnections()}
+}
+
+// NewWithAgents returns a Handler with agent support enabled.
+func NewWithAgents(docker *client.Client, as AgentStorer, serverURL string) *Handler {
+	return &Handler{
+		docker:         docker,
+		agentStore:     as,
+		agentConns:     newAgentConnections(),
+		agentServerURL: serverURL,
+	}
 }
 
 // ContainerSummary is the API representation of a Docker container.

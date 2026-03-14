@@ -15,6 +15,7 @@ import (
 
 	"github.com/docker/docker/client"
 	"github.com/example/docker-api/handlers"
+	"github.com/example/docker-api/store"
 	"github.com/gorilla/mux"
 )
 
@@ -39,7 +40,21 @@ func main() {
 	}
 	defer dockerClient.Close()
 
-	h := handlers.New(dockerClient)
+	var h *handlers.Handler
+	if redisAddr := os.Getenv("REDIS_ADDR"); redisAddr != "" {
+		as, err := store.NewAgentStore(redisAddr)
+		if err != nil {
+			slog.Warn("agent store unavailable, running without agent support", "error", err)
+			h = handlers.New(dockerClient)
+		} else {
+			defer as.Close()
+			agentServerURL := os.Getenv("AGENT_SERVER_URL")
+			h = handlers.NewWithAgents(dockerClient, as, agentServerURL)
+			slog.Info("agent store connected", "redis", redisAddr)
+		}
+	} else {
+		h = handlers.New(dockerClient)
+	}
 
 	r := mux.NewRouter()
 	r.Use(loggingMiddleware)
@@ -89,6 +104,16 @@ func main() {
 	r.HandleFunc("/vulnerabilities/status", h.ScanStatus).Methods(http.MethodGet)
 	r.HandleFunc("/vulnerabilities/download", h.TriggerDownload).Methods(http.MethodPost)
 	r.HandleFunc("/vulnerabilities/scan", h.ScanImage).Methods(http.MethodPost)
+
+	// Agent management + gateway (order matters: specific paths before parameterised ones)
+	r.HandleFunc("/agents/hosts", h.ListHosts).Methods(http.MethodGet)
+	r.HandleFunc("/agents/ws", h.AgentGatewayWS).Methods(http.MethodGet)
+	r.HandleFunc("/agents", h.CreateAgent).Methods(http.MethodPost)
+	r.HandleFunc("/agents/{id}", h.DeleteAgent).Methods(http.MethodDelete)
+	r.HandleFunc("/agents/{id}/exec/ws", h.AgentExecWS).Methods(http.MethodGet)
+	r.HandleFunc("/agents/{id}/proxy/{path:.*}", h.AgentProxy).Methods(
+		http.MethodGet, http.MethodPost, http.MethodDelete, http.MethodPut, http.MethodPatch,
+	)
 
 	addr := ":8080"
 	if port := os.Getenv("PORT"); port != "" {
